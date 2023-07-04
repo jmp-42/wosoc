@@ -16,6 +16,7 @@ const FONT_NAME = 'Menlo-Bold';
 const FONT_SIZE = 11;
 
 const DEBUG_USER_PREFERENCES = false
+const DOWNLOAD_FROM_GITHUB = true
 
 // NWSL/CC/World Cup:
 const TEXT_CELL_WIDTH_MULTI = 280
@@ -23,8 +24,8 @@ const LOGO_CELL_WIDTH_MULTI = 25
 
 // Single Team:
 const TEXT_CELL_WIDTH_SINGLE = 200
-const LOGO_CELL_WIDTH_SINGLE = 35
-const MAIN_LOGO_CELL_WIDTH_SINGLE = 90
+const LOGO_CELL_WIDTH_SINGLE = 20
+const MAIN_LOGO_CELL_WIDTH_SINGLE = 75
 
 // Colors
 const COLORS = {
@@ -42,15 +43,14 @@ const CALENDAR3_NAME = 'World Cup 2023';
 
 // icon file paths
 const dirpath = 'wosocWidget/images/'
-const nwslpath = dirpath + 'nwslcolor.png'
-const nwslbwpath = dirpath + 'nwslbw.png'
-const ccpath = dirpath + 'challengecupcolor.png'
-const ccbwpath = dirpath + 'challengecupbw.png'
-const wcpath = dirpath + 'fifacolor.png'
-const wcbwpath = dirpath + 'fifabw.png'
-const backgroundpath = dirpath + 'BlueClaw_BG.jpeg'
-const reignpath = dirpath + 'RGN.png'
-const reignbwpath = dirpath + 'rgn_white.png'
+const git_imgpath = 'https://raw.githubusercontent.com/jmp-42/wosoc/main/images/' //https://raw.githubusercontent.com/jmp-42/wosoc/main/images
+const nwslpath = 'logos/nwslcolor.png'
+const nwslbwpath = 'logos/nwslbw.png'
+const ccpath = 'logos/challengecupcolor.png'
+const ccbwpath = 'logos/challengecupbw.png'
+const wcpath = 'logos/fifacolor.png'
+const wcbwpath = 'logos/fifabw.png'
+const backgroundpath = 'BlueClaw_BG.jpeg'
 
 const cache_userinput_path = Script.name() + "_userinput.json"
 
@@ -58,8 +58,8 @@ let saved_preferences =
 {
   "widgetType" : "",
   "targetTeam" : "",
-  "teamImage" : reignpath,
-  "teamLockScreenImage" : reignbwpath,
+  "teamImage" : "",
+  "teamLockScreenImage" : "",
   "NWSL Calendar" : CALENDAR1_NAME,
   "Challenge Cup Calendar" : CALENDAR2_NAME,
   "World Cup Calendar" : CALENDAR3_NAME
@@ -124,7 +124,7 @@ await presentMenu()
 if(!requested_exit) {
   log("NAME:" + Script.name())
   const data = await fetchData();
-  const widget = createWidget(data);
+  const widget = await createWidget(data);
 
   // Set background image of widget, if flag is true
   if (USE_BACKGROUND_IMAGE) {
@@ -171,20 +171,20 @@ if(!requested_exit) {
  * 
  * @param {} data The data for the widget to display
  */
-function createWidget(data) 
+async function createWidget(data) 
 {
   switch(saved_preferences["widgetType"])
   {
     case widgetTypes[0]:
-      return createWeeklySoccerWidget(data)
+      return await createWeeklySoccerWidget(data)
     case widgetTypes[1]:
-      return createSingleTeamWidget(data, saved_preferences["targetTeam"])
+      return await createSingleTeamWidget(data, saved_preferences["targetTeam"])
       default:
         log("unexpected case " + saved_preferences["widgetType"])
-        return createWeeklySoccerWidget(data)
+        return await createWeeklySoccerWidget(data)
   }
 }
-function createSingleTeamWidget(data, targetTeam)
+async function createSingleTeamWidget(data, targetTeam)
 {
   log("creating single team widget")
 
@@ -193,7 +193,7 @@ function createSingleTeamWidget(data, targetTeam)
   if(args.widgetParameter != 'showschedule' && !config.runsInApp)
   {
     mainStack = widget.addStack()
-    addIcon(mainStack, saved_preferences["teamLockScreenImage"], targetTeam, 50)
+    await addIcon(mainStack, saved_preferences["teamLockScreenImage"], targetTeam, false)
     return widget
   }
   if  (!USE_BACKGROUND_IMAGE) {
@@ -206,19 +206,18 @@ function createSingleTeamWidget(data, targetTeam)
 
   mainStack = widget.addStack()
   mainStack.layoutHorizontally()
+  mainStack.centerAlignContent()
   mainStack.spacing = 6;
 
-  ReignLogoStack = mainStack.addStack()
-  ReignLogoStack.centerAlignContent()
-  ReignLogoStack.layoutVertically()
-  ReignLogoStack.addSpacer()
-  teamNameText = ReignLogoStack.addText(targetTeam)
-  teamNameText.textColor = new Color(COLORS.NWSLCalendar);
-  teamNameText.font = new Font(FONT_NAME, FONT_SIZE);
-  addIcon(ReignLogoStack, saved_preferences["teamImage"], targetTeam, 100)
-  ReignLogoStack.size = new Size(MAIN_LOGO_CELL_WIDTH_SINGLE, 0);
-  ReignLogoStack.addSpacer()
+  TeamLogoStack = mainStack.addStack()
+  TeamLogoStack.centerAlignContent()
+ TeamLogoStack.addSpacer()
 
+  TeamLogoStack.layoutVertically()
+  await addIcon(TeamLogoStack, saved_preferences["teamImage"], targetTeam, true)
+
+  TeamLogoStack.size = new Size(MAIN_LOGO_CELL_WIDTH_SINGLE, 0);
+  TeamLogoStack.addSpacer()
 
   GamesStack = mainStack.addStack()
   GamesStack.spacing = 6;
@@ -230,6 +229,7 @@ function createSingleTeamWidget(data, targetTeam)
   NWSLStack.layoutHorizontally()
 
   NWSLLogo = NWSLStack.addStack()
+  NWSLLogo.centerAlignContent()
   NWSLLogo.layoutVertically()
   NWSLLogo.size = new Size(LOGO_CELL_WIDTH_SINGLE, 0);
   //NWSLStack.addSpacer()
@@ -245,6 +245,7 @@ function createSingleTeamWidget(data, targetTeam)
   CCStack.layoutHorizontally()
 
   CCLogo = CCStack.addStack()
+  CCLogo.centerAlignContent()
   CCLogo.layoutVertically()
   CCLogo.size = new Size(LOGO_CELL_WIDTH_SINGLE, 0);
  //CCStack.addSpacer()
@@ -254,7 +255,7 @@ function createSingleTeamWidget(data, targetTeam)
   //CCStack.addSpacer()
   /** GAME INFO */
   if(data.nextNWSLEvent && data.nextNWSLEvent.length > 0){
-    addIcon(NWSLLogo, nwslpath, '⚽️', 25)//'soccerball.inverse')//'⚽️')
+    await addIcon(NWSLLogo, nwslpath, '⚽️', true)//'soccerball.inverse')//'⚽️')
 
     let nextNWSLRegularGames = NWSLText.addText(`${getAllEvents(data.nextNWSLEvent, 'NWSL')}`);
     nextNWSLRegularGames.textColor = new Color(COLORS.NWSLCalendar);
@@ -262,7 +263,7 @@ function createSingleTeamWidget(data, targetTeam)
   }
 
   if(data.nextNWSLCCEvent && data.nextNWSLCCEvent.length > 0){
-    addIcon(CCLogo, ccpath, '🏆', 25)//'trophy.circle')//'🏆')
+    await addIcon(CCLogo, ccpath, '🏆', true)//'trophy.circle')//'🏆')
 
     let nextNWSLChallengeCupGame = CCText.addText(`${getAllEvents(data.nextNWSLCCEvent, 'Challenge Cup')}`);
     nextNWSLChallengeCupGame.textColor = new Color(COLORS.NWSLCCCalendar);
@@ -271,7 +272,7 @@ function createSingleTeamWidget(data, targetTeam)
   return widget;
 }
 
-function createWeeklySoccerWidget(data) {
+async function createWeeklySoccerWidget(data) {
   log("creating weekly widget")
   /** SETUP WIDGET */
   const widget = new ListWidget();
@@ -330,9 +331,9 @@ function createWeeklySoccerWidget(data) {
   WCStack.addSpacer()
   
   
-  addIcon(NWSLLogo, nwslpath, 'soccerball.inverse')//'⚽️')
-  addIcon(CCLogo, ccpath, 'trophy.circle')//'🏆')
-  addIcon(WCLogo, wcpath, 'globe.americas.fill')//'🌎')
+  await addIcon(NWSLLogo, nwslpath, 'soccerball.inverse', true)//'⚽️')
+  await addIcon(CCLogo, ccpath, 'trophy.circle', true)//'🏆')
+  await addIcon(WCLogo, wcpath, 'globe.americas.fill', true)//'🌎')
 
   /** GAME INFO */
   const NWSLEvents = getAllEvents(data.nextNWSLEvent, 'NWSL')
@@ -424,14 +425,12 @@ function getAllEvents(calendarEvents, gameType)
       if(event.length > 0)
       {
           if(numEvents > 0){
-            log("inner")
               AllEvents += '\n'
           }
           AllEvents += event;
           numEvents += 1
       }
   }
-  log(numEvents)
   return AllEvents;
 }
 
@@ -466,7 +465,6 @@ function getCalendarEventTitle(calendarEvent, gameType) {
       home = getShortTeamName(splitName[0])
       away = getShortTeamName(splitName[1])
       targetTeam = getShortTeamName(saved_preferences["targetTeam"])
-      log("home: " + home + " away: " + away + " target: " + targetTeam)
       if(!(home == targetTeam || away == targetTeam))
           return ''
   
@@ -550,11 +548,11 @@ async function promptTargetTeam()
 
   idx = await alert.presentSheet(Script.name() + "1")
   if(idx == teamsList.length + 1) {
-    fileManagerLocal.writeString(path, "cancelled operation")
+    fileManageriCloud.writeString(path, "cancelled operation")
     closeApp()
   }
   saved_preferences["targetTeam"] = teamsList[idx]
-  saved_preferences["teamImage"] = dirpath + "teams/" + getTeamFileName(getShortTeamName(saved_preferences["targetTeam"]))
+  saved_preferences["teamImage"] = "teams/" + getTeamFileName(getShortTeamName(saved_preferences["targetTeam"]))
 }
 function promptImage()
 {
@@ -642,26 +640,132 @@ async function presentMenu()
 
 }
 
-function addIcon(wstack, iconName, fallbackStr)
+async function getImage(relative_path)
+{
+    // check if it exists in icloud dirpath locally already
+    const path =  fileManageriCloud.joinPath(fileManageriCloud.documentsDirectory(), dirpath + relative_path);
+    const alreadyexists = fileManageriCloud.fileExists(path);
+    // If it exists and we're running in the widget, use photo from cache
+    if (alreadyexists )
+    {
+        fileManageriCloud.downloadFileFromiCloud(path)
+        let img = fileManageriCloud.readImage(path);
+        if(img){
+            //let stackimg = wstack.addImage(img)
+            //stackimg.centerAlignImage()
+            log(path + " already exists, loading image from file")
+            return img
+        }
+    }
+    try
+    {
+        log("downloading team image from " + git_imgpath + relative_path)
+        let request = await new Request(git_imgpath + relative_path)
+        let img = await request.load()
+        //let stackimg = wstack.addImage(Image.fromData(img))
+        //stackimg.centerAlignImage()
+        cur_dir = fileManageriCloud.joinPath(fileManageriCloud.documentsDirectory(), dirpath + "/teams")
+        if(!(fileManageriCloud.isDirectory(cur_dir)))
+        {
+            log("creating directory " + cur_dir )
+            fileManageriCloud.createDirectory(cur_dir)
+        }
+        const path = fileManageriCloud.joinPath(fileManageriCloud.documentsDirectory(), dirpath + relative_path);
+        fileManageriCloud.writeImage(path, Image.fromData(img))
+        return Image.fromData(img)
+    }
+    catch (error) 
+    {
+        log(`Error fetching img: ${git_imgpath + relative_path}`);
+        return null
+    }
+}
+
+async function addIcon(wstack, iconName, fallbackStr, bIsInGithub)
 {
   if(USE_LOGOS)
   {
-    //const files = FileManager.iCloud();
-    const path = fileManageriCloud.joinPath(fileManageriCloud.documentsDirectory(), iconName);
-    const exists = fileManageriCloud.fileExists(path);
-    // If it exists and we're running in the widget, use photo from cache
-    if (exists ){
-      fileManageriCloud.downloadFileFromiCloud(path)
-      let img = fileManageriCloud.readImage(path);
-      if(img)
-        wstack.addImage(img)
+    var img;
+    if(DOWNLOAD_FROM_GITHUB && bIsInGithub)
+    {
+        img = await getImage(iconName)
+        if(img != null)
+        {
+            let stackimg = wstack.addImage(img)
+            stackimg.centerAlignImage()
+        }
+        else
+        {
+            let text = wstack.addText(fallbackStr)
+            text.centerAlignText()
+            text.textColor = new Color(COLORS.NWSLCCCalendar);
+            text.font = new Font(FONT_NAME, FONT_SIZE);
+        }
+        /*
+        // check if they exist in dirpath locally already
+        const path =  fileManageriCloud.joinPath(fileManageriCloud.documentsDirectory(), dirpath + iconName);
+        const alreadyexists = fileManageriCloud.fileExists(path);
+        // If it exists and we're running in the widget, use photo from cache
+        if (alreadyexists )
+        {
+            fileManageriCloud.downloadFileFromiCloud(path)
+            let img = fileManageriCloud.readImage(path);
+            if(img){
+                let stackimg = wstack.addImage(img)
+                stackimg.centerAlignImage()
+                log(path + " already exists, loading image from file")
+                return
+            }
+        }
+        // else download from github repo
+        try
+        {
+            log("downloading team image from " + git_imgpath + iconName)
+            let request = await new Request(git_imgpath + iconName)
+            img = await request.load()
+            let stackimg = wstack.addImage(Image.fromData(img))
+            stackimg.centerAlignImage()
+            cur_dir = fileManageriCloud.joinPath(fileManageriCloud.documentsDirectory(), dirpath + "/teams")
+            if(!(fileManageriCloud.isDirectory(cur_dir)))
+            {
+                log("creating directory " + cur_dir )
+                fileManageriCloud.createDirectory(cur_dir)
+            }
+            const path = fileManageriCloud.joinPath(fileManageriCloud.documentsDirectory(), dirpath + iconName);
+            fileManageriCloud.writeImage(path, Image.fromData(img))
+        }
+        catch (error) 
+        {
+            log(`Error fetching img: ${git_imgpath + iconName}`);
+            let text = wstack.addText(fallbackStr)
+            text.textColor = new Color(COLORS.NWSLCCCalendar);
+            text.font = new Font(FONT_NAME, FONT_SIZE);
+        }
+        */
+    }
+    else
+    {
+        //const files = FileManager.iCloud();
+        const path = fileManageriCloud.joinPath(fileManageriCloud.documentsDirectory(), iconName);
+        const exists = fileManageriCloud.fileExists(path);
+        // If it exists and we're running in the widget, use photo from cache
+        if (exists )
+        {
+            fileManageriCloud.downloadFileFromiCloud(path)
+            let img = fileManageriCloud.readImage(path);
+            if(img)
+            {
+                let stackimg = wstack.addImage(img)
+                stackimg.centerAlignImage()
+            }
+        } 
     }
   }
   else
   {
-    let sym = SFSymbol.named(fallbackStr)
-    wstack.addImage(sym.image)
-    //wstack.addText(fallbackStr)
+    let text = wstack.addText(fallbackStr)
+    text.textColor = new Color(COLORS.NWSLCCCalendar);
+    text.font = new Font(FONT_NAME, FONT_SIZE);
   }
 }
 
@@ -706,7 +810,6 @@ function getShortTeamName(longName)
   }
 }
 
-
 function getTeamFileName(longName)
 {
   switch(longName)
@@ -736,7 +839,7 @@ function getTeamFileName(longName)
     case 'OL Reign': 
       return 'RGN.png' 
   }
-  return 'nwslcolor.png'
+  console.error(`no matching image for: ${longName}, error: ${JSON.stringify(error)}`);
 }
 /**
  * Make a REST request and return the response
